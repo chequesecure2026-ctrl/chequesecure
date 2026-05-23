@@ -11,32 +11,24 @@ async function verifyCheque(cheque) {
 
 Extract the following fields from the cheque image:
 1. Payee name (the name written after "Pay" or "Pay to the order of")
-2. Amount in figures (the number in the Rs/₹ box)
+2. Amount in figures (the number in the Rs box)
 3. Amount in words (written out amount)
 4. Cheque number (6-digit number printed at bottom)
 5. Bank name
-6. Branch name/location
-7. Date on the cheque
-8. Whether it is crossed (two parallel lines)
-9. Whether it says "A/c Payee" or "Account Payee" in the crossing
-10. Any endorsement on the back mentioning a specific account number
+6. Date on the cheque
+7. Whether it is crossed (two parallel lines)
+8. Whether it says Ac Payee in the crossing
 
 Then verify against these expected values:
 - Expected payee: "${process.env.FIRM_PAYEE_NAME}"
-- Expected amount: "Rs.${cheque.amount_figures}"
+- Expected amount: "${cheque.amount_figures}"
 - Expected cheque number: "${cheque.cheque_number}"
-- Expected account number in endorsement: "${process.env.FIRM_ACCOUNT_NUMBER || 'not specified'}"
 
-For each check, mark as: PASS, FAIL, or WARN (if unclear or partially matching).
+For each check, mark as PASS, FAIL, or WARN.
 
-Also check:
-- Do amount in figures and amount in words match each other?
-- Is the cheque date valid (not stale — older than 3 months, and not undated)?
-- Is the cheque properly signed (signature visible)?
-
-Respond ONLY with a JSON object, no markdown, no preamble. Format:
+Respond ONLY with a JSON object, no markdown, no preamble:
 {
-  "overall": "PASS" | "WARN" | "FAIL",
+  "overall": "PASS or WARN or FAIL",
   "overall_reason": "one sentence summary",
   "extracted": {
     "payee": "...",
@@ -44,21 +36,20 @@ Respond ONLY with a JSON object, no markdown, no preamble. Format:
     "amount_words": "...",
     "cheque_number": "...",
     "bank": "...",
-    "branch": "...",
     "date": "...",
-    "crossed": true | false,
-    "ac_payee": true | false,
-    "back_endorsement": "..."
+    "crossed": true,
+    "ac_payee": true,
+    "back_endorsement": "none"
   },
   "checks": [
-    { "label": "Payee name match", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "Amount match", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "Cheque number match", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "Amount in words vs figures", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "Cheque date validity", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "A/c Payee crossing", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "Signature present", "status": "PASS"|"FAIL"|"WARN", "note": "..." },
-    { "label": "Account endorsement on back", "status": "PASS"|"FAIL"|"WARN", "note": "..." }
+    { "label": "Payee name match", "status": "PASS", "note": "..." },
+    { "label": "Amount match", "status": "PASS", "note": "..." },
+    { "label": "Cheque number match", "status": "PASS", "note": "..." },
+    { "label": "Amount in words vs figures", "status": "PASS", "note": "..." },
+    { "label": "Cheque date validity", "status": "PASS", "note": "..." },
+    { "label": "Ac Payee crossing", "status": "WARN", "note": "..." },
+    { "label": "Signature present", "status": "PASS", "note": "..." },
+    { "label": "Account endorsement on back", "status": "WARN", "note": "..." }
   ]
 }`;
 
@@ -73,12 +64,18 @@ Respond ONLY with a JSON object, no markdown, no preamble. Format:
             { inline_data: { mime_type: mimeType, data: base64Image } },
             { text: prompt }
           ]
-        }]
+        }],
+        generationConfig: { temperature: 0.1 }
       })
     }
   );
 
   const data = await response.json();
+  
+  if (!data.candidates || !data.candidates[0]) {
+    throw new Error('Gemini returned no candidates: ' + JSON.stringify(data));
+  }
+
   const raw = data.candidates[0].content.parts[0].text;
   const clean = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
