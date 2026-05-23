@@ -1,8 +1,5 @@
-const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function verifyCheque(cheque) {
   const imagePath = path.join(__dirname, '..', cheque.image_path);
@@ -14,7 +11,7 @@ async function verifyCheque(cheque) {
 
 Extract the following fields from the cheque image:
 1. Payee name (the name written after "Pay" or "Pay to the order of")
-2. Amount in figures (the number in the ₹ box)
+2. Amount in figures (the number in the Rs/₹ box)
 3. Amount in words (written out amount)
 4. Cheque number (6-digit number printed at bottom)
 5. Bank name
@@ -26,7 +23,7 @@ Extract the following fields from the cheque image:
 
 Then verify against these expected values:
 - Expected payee: "${process.env.FIRM_PAYEE_NAME}"
-- Expected amount: "₹${cheque.amount_figures}"
+- Expected amount: "Rs.${cheque.amount_figures}"
 - Expected cheque number: "${cheque.cheque_number}"
 - Expected account number in endorsement: "${process.env.FIRM_ACCOUNT_NUMBER || 'not specified'}"
 
@@ -65,19 +62,24 @@ Respond ONLY with a JSON object, no markdown, no preamble. Format:
   ]
 }`;
 
-  const response = await client.messages.create({
-    model: 'claude-3-haiku-20240307',
-    max_tokens: 1000,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
-        { type: 'text', text: prompt }
-      ]
-    }]
-  });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: mimeType, data: base64Image } },
+            { text: prompt }
+          ]
+        }]
+      })
+    }
+  );
 
-  const raw = response.content.map(b => b.text || '').join('');
+  const data = await response.json();
+  const raw = data.candidates[0].content.parts[0].text;
   const clean = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
