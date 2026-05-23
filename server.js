@@ -2,7 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const fs = require('fs');
 const { initDB } = require('./db');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
+  fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+}
 
 const app = express();
 
@@ -15,7 +21,7 @@ app.use(session({
   cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 }
 }));
 
-// Serve uploaded cheque images (admin only via separate check in frontend)
+// Serve uploaded cheque images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve static frontend files
