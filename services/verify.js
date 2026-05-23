@@ -8,7 +8,6 @@ async function verifyCheque(cheque) {
   const mimeType = cheque.image_path.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
   const prompt = `You are a cheque verification assistant for an Indian business. Analyse this cheque image carefully.
-
 Extract the following fields from the cheque image:
 1. Payee name (the name written after "Pay" or "Pay to the order of")
 2. Amount in figures (the number in the Rs box)
@@ -18,14 +17,11 @@ Extract the following fields from the cheque image:
 6. Date on the cheque
 7. Whether it is crossed (two parallel lines)
 8. Whether it says Ac Payee in the crossing
-
 Then verify against these expected values:
 - Expected payee: "${process.env.FIRM_PAYEE_NAME}"
 - Expected amount: "${cheque.amount_figures}"
 - Expected cheque number: "${cheque.cheque_number}"
-
 For each check, mark as PASS, FAIL, or WARN.
-
 Respond ONLY with a JSON object, no markdown, no preamble:
 {
   "overall": "PASS or WARN or FAIL",
@@ -54,7 +50,7 @@ Respond ONLY with a JSON object, no markdown, no preamble:
 }`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,7 +67,7 @@ Respond ONLY with a JSON object, no markdown, no preamble:
   );
 
   const data = await response.json();
-  
+
   if (!data.candidates || !data.candidates[0]) {
     throw new Error('Gemini returned no candidates: ' + JSON.stringify(data));
   }
