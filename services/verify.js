@@ -1,5 +1,8 @@
+const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function verifyCheque(cheque) {
   const imagePath = path.join(__dirname, '..', cheque.image_path);
@@ -49,30 +52,19 @@ Respond ONLY with a JSON object, no markdown, no preamble:
   ]
 }`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: mimeType, data: base64Image } },
-            { text: prompt }
-          ]
-        }],
-        generationConfig: { temperature: 0.1 }
-      })
-    }
-  );
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1000,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+        { type: 'text', text: prompt }
+      ]
+    }]
+  });
 
-  const data = await response.json();
-
-  if (!data.candidates || !data.candidates[0]) {
-    throw new Error('Gemini returned no candidates: ' + JSON.stringify(data));
-  }
-
-  const raw = data.candidates[0].content.parts[0].text;
+  const raw = response.content.map(b => b.text || '').join('');
   const clean = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
